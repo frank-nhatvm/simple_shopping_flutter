@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:simpleshoppingflutter/networks/Entity.dart';
 import 'package:http/http.dart' as http;
 
-enum HTTP_METHOD { GET, POST, PUT, DELETE }
+enum HTTP_METHOD { GET, POST, PUT, DELETE, HEAD, PATH }
 
 class BaseModel {
   String BASE_URL = 'https://jsonplaceholder.typicode.com';
@@ -13,6 +13,8 @@ class BaseModel {
   Map<String, String> paths = Map();
   Map<String, dynamic> body = Map();
   var method = HTTP_METHOD.GET;
+
+  List<http.MultipartFile> listMultiPartFile = List();
 
   Entity entity = Entity();
 
@@ -26,15 +28,40 @@ class BaseModel {
 
   void initEntity() {}
 
+  Future<Entity> multipartRequest() async {
+    var uri = Uri.parse(url);
+
+    var method = 'POST';
+    if(this.method == HTTP_METHOD.PUT){
+      method = 'PUT';
+    }
+
+    var request = http.MultipartRequest(method, uri);
+    request.fields.addAll(body);
+    request.files.addAll(listMultiPartFile);
+    var response = await request.send();
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return entity;
+    } else {
+      throw Exception('Request fail');
+    }
+  }
+
   Future<Entity> request() async {
     processUrl();
 
     var response;
 
     if (method == HTTP_METHOD.GET) {
-      response = await http.get(url);
+      response = await http.get(url,headers: headers);
     } else if (method == HTTP_METHOD.POST) {
-      response = await http.post(url, body: '');
+      response = await http.post(url,headers: headers, body: jsonEncode(body));
+    }
+    else if(method == HTTP_METHOD.DELETE){
+      response = await http.delete(url,headers: headers);
+    }
+    else if(method == HTTP_METHOD.PUT){
+      response = await http.put(url,headers: headers,body: jsonEncode(body));
     }
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
@@ -46,6 +73,7 @@ class BaseModel {
   }
 
   void initBasePath() {}
+
 
   void processUrl() {
     String path = processPaths();
@@ -63,6 +91,8 @@ class BaseModel {
     });
     return buffer.toString();
   }
+
+
 
   void addParameter(String key, String value) {
     parameters[key] = value;
@@ -84,11 +114,16 @@ class BaseModel {
     body[key] = value;
   }
 
-  void setBody(Map<String,dynamic> body){
+  void setBody(Map<String, dynamic> body) {
     this.body = body;
   }
 
   void setMethod(HTTP_METHOD method) {
     this.method = method;
   }
+  // To know how to create a MultiPartFile, read this link: https://pub.dev/documentation/http/latest/http/MultipartFile-class.html
+  void addAMultiPartFile(http.MultipartFile multipartFile){
+    listMultiPartFile.add(multipartFile);
+  }
+
 }
